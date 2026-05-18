@@ -63,6 +63,7 @@ const ROLE_CONFIGS = {
 };
 
 export default function Dashboard() {
+  const [user, setUser] = useState(null);
   const [role, setRole] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -122,10 +123,14 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    const savedUserStr = localStorage.getItem('user');
     const savedRole = localStorage.getItem('userRole');
-    if (!savedRole || !ROLE_CONFIGS[savedRole]) {
+    
+    if (!savedUserStr || !savedRole || !ROLE_CONFIGS[savedRole]) {
       navigate('/login');
     } else {
+      const savedUser = JSON.parse(savedUserStr);
+      setUser(savedUser);
       setRole(savedRole);
       if (savedRole === 'employee') {
         refreshEmployeeData();
@@ -147,6 +152,7 @@ export default function Dashboard() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('user');
     localStorage.removeItem('userRole');
     navigate('/login');
   };
@@ -505,10 +511,10 @@ export default function Dashboard() {
         <div className="sidebar-footer">
           <div className="user-profile">
             <div className="avatar">
-              {config.title.charAt(0)}
+              {user ? user.name.charAt(0) : config.title.charAt(0)}
             </div>
             <div className="user-info">
-              <span className="user-name">{config.title} User</span>
+              <span className="user-name">{user ? user.name : `${config.title} User`}</span>
               <span className="user-role-badge">{config.title}</span>
             </div>
           </div>

@@ -1,3 +1,4 @@
+const users = require('./users');
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -12,7 +13,10 @@ const {
 } = require('./services/aiSuggestionService');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:5174'],
+  credentials: true
+}));
 app.use(express.json());
 
 // Log every incoming request
@@ -34,6 +38,42 @@ app.get('/api/health', (req, res) => {
     db: dbState === 1 ? 'connected' : 'disconnected',
     port: Number(process.env.PORT) || 5000,
   });
+});
+
+// LOGIN API ROUTE
+app.post('/api/login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = users.find(
+      (u) => u.email === email && u.password === password
+    );
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        role: user.role,
+        email: user.email
+      }
+    });
+
+  } catch (err) {
+    console.error('Login error:', err);
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error during login'
+    });
+  }
 });
 
 // Routes
