@@ -10,32 +10,33 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const validUsers = [
+    { id: 1, name: 'Test Employee', email: 'employee@test.com', password: '123456', role: 'employee' },
+    { id: 2, name: 'Test Manager', email: 'manager@test.com', password: '123456', role: 'manager' },
+    { id: 3, name: 'Test Admin', email: 'admin@test.com', password: '123456', role: 'admin' }
+  ];
+
+  const handleSubmit = (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
+    // Hardcoded credential validation for hackathon deployment
+    const user = validUsers.find(u => u.email === email && u.password === password);
 
-      const data = await response.json();
-
-      if (data.success) {
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('userRole', data.user.role);
-        navigate('/dashboard');
-      } else {
-        setError('Invalid email or password');
-      }
-    } catch (err) {
-      setError('Server connection failed');
-    } finally {
-      setLoading(false);
+    if (user) {
+      localStorage.setItem('user', JSON.stringify({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }));
+      localStorage.setItem('userRole', user.role);
+      navigate('/dashboard');
+    } else {
+      setError('Invalid email or password');
     }
+    setLoading(false);
   };
 
   return (
