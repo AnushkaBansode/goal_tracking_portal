@@ -73,6 +73,11 @@ export default function Dashboard() {
   const [goalsError, setGoalsError] = useState(null);
   const [notification, setNotification] = useState(null);
   
+  // Manager/Admin dashboard data states
+  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState(null);
+  
   const navigate = useNavigate();
 
   // Recomputed whenever goals change — keeps analytics in sync after CRUD
@@ -90,9 +95,29 @@ export default function Dashboard() {
       setGoals(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[Dashboard] refreshEmployeeData failed:', err);
-      setGoalsError(err.message || 'Failed to load goals');
+      setGoalsError('Unable to load data');
+      setGoals([]);
     } finally {
       setGoalsLoading(false);
+    }
+  }, []);
+
+  /** Load manager/admin dashboard data from API */
+  const refreshDashboardData = useCallback(async (currentRole) => {
+    if (currentRole !== 'manager' && currentRole !== 'admin') return;
+    
+    setDashboardLoading(true);
+    setDashboardError(null);
+    try {
+      const endpoint = currentRole === 'manager' ? '/api/dashboard/manager' : '/api/dashboard/admin';
+      const { data } = await apiFetch(endpoint);
+      setDashboardData(data);
+    } catch (err) {
+      console.error(`[Dashboard] refreshDashboardData failed for ${currentRole}:`, err);
+      setDashboardError(null);
+      setDashboardData(null);
+    } finally {
+      setDashboardLoading(false);
     }
   }, []);
 
@@ -104,9 +129,11 @@ export default function Dashboard() {
       setRole(savedRole);
       if (savedRole === 'employee') {
         refreshEmployeeData();
+      } else if (savedRole === 'manager' || savedRole === 'admin') {
+        refreshDashboardData(savedRole);
       }
     }
-  }, [navigate, refreshEmployeeData]);
+  }, [navigate, refreshEmployeeData, refreshDashboardData]);
 
   const handleAcceptAISuggestion = (suggestion) => {
     setCreateGoalPrefill(suggestionToInitialGoal(suggestion));
@@ -196,6 +223,26 @@ export default function Dashboard() {
     config.stats[2].trend = `${analytics.overallCompletionPercentage}% overall completion`;
   }
 
+  // Sync manager stats with real data
+  if (role === 'manager' && dashboardData) {
+    config.stats[0].value = String(dashboardData.totalGoals);
+    config.stats[1].value = String(dashboardData.pendingApprovals);
+    config.stats[2].value = `${dashboardData.teamVelocity}%`;
+    config.stats[0].trend = `↑ ${dashboardData.completedGoals} completed`;
+    config.stats[1].trend = dashboardData.pendingApprovals > 0 ? 'Requires action' : 'All clear';
+    config.stats[2].trend = 'Average progress';
+  }
+
+  // Sync admin stats with real data
+  if (role === 'admin' && dashboardData) {
+    config.stats[0].value = String(dashboardData.totalUsers);
+    config.stats[1].value = `${dashboardData.systemHealth}%`;
+    config.stats[2].value = String(dashboardData.lockedGoals);
+    config.stats[0].trend = `Total goals: ${dashboardData.totalGoals}`;
+    config.stats[1].trend = dashboardData.systemHealth >= 80 ? 'Optimal' : 'Needs attention';
+    config.stats[2].trend = 'Awaiting unlock';
+  }
+
   // Render role-specific main content sections
   const renderDashboardContent = () => {
     return (
@@ -243,7 +290,7 @@ export default function Dashboard() {
                   {stat.icon}
                 </div>
               </div>
-              <div className="stat-value">{stat.value}</div>
+              <div className="stat-value">{dashboardLoading ? '...' : stat.value}</div>
               <div className={`stat-trend ${stat.trend.includes('↑') || stat.trend === 'Optimal' || stat.trend === 'On track' ? 'positive' : 'neutral'}`}>
                 {stat.trend}
               </div>
@@ -267,7 +314,11 @@ export default function Dashboard() {
               <button className="btn-link">View All</button>
             </div>
             <div className="goal-list">
-              {role === 'employee' && goals.length === 0 ? (
+              {role === 'employee' && goalsLoading ? (
+                <div className="text-muted" style={{ padding: '2rem', textAlign: 'center' }}>
+                  Loading...
+                </div>
+              ) : role === 'employee' && goals.length === 0 ? (
                 <div className="text-muted" style={{ padding: '2rem', textAlign: 'center' }}>
                   No goals created yet. Click "Create Goal" to get started.
                 </div>
@@ -309,26 +360,53 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ))
-              ) : (
-                [1, 2, 3].map((i) => (
-                  <div key={i} className="goal-item">
+              ) : dashboardLoading ? (
+                <div className="text-muted" style={{ padding: '2rem', textAlign: 'center' }}>
+                  Loading...
+                </div>
+              ) : role === 'manager' && dashboardData?.recentGoals?.length > 0 ? (
+                dashboardData.recentGoals.slice(0, 5).map((goal) => (
+                  <div key={goal._id} className="goal-item">
                     <div className="goal-info">
-                      <h4>{role === 'manager' ? `Team Member ${i} Goal` : `System Audit ${i}`}</h4>
-                      <p>{role === 'admin' ? 'Completed 2h ago' : `Due in ${i * 15} days`}</p>
+                      <h4>{goal.title}</h4>
+                      <p>{goal.thrustArea} • {goal.weightage}% Weight • {goal.role}</p>
                     </div>
-                    {role !== 'admin' && (
-                      <div className="goal-progress">
-                        <div className="progress-bar">
-                          <div className="progress-fill" style={{ width: `${100 - i * 20}%` }}></div>
-                        </div>
-                        <span className="progress-text">{100 - i * 20}%</span>
+                    <div className="goal-progress">
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: `${goal.progress}%` }}></div>
                       </div>
-                    )}
+                      <span className="progress-text">{goal.progress}%</span>
+                    </div>
+                    <div style={{ marginLeft: '1rem', minWidth: '100px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                       {goal.status}
+                    </div>
                     <button className="btn-icon-small">
                       <ChevronRight size={16} />
                     </button>
                   </div>
                 ))
+              ) : role === 'admin' && dashboardData?.systemAlerts?.length > 0 ? (
+                dashboardData.systemAlerts.map((alert) => (
+                  <div key={alert.id} className="goal-item">
+                    <div className="goal-info">
+                      <h4>{alert.title}</h4>
+                      <p>{alert.status} • {alert.progress}% complete</p>
+                    </div>
+                    <div className="goal-progress">
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: `${alert.progress}%` }}></div>
+                      </div>
+                      <span className="progress-text">{alert.progress}%</span>
+                    </div>
+                    <button className="btn-icon-small">
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-muted" style={{ padding: '2rem', textAlign: 'center' }}>
+                  No {role === 'manager' ? 'team goals' : 'system alerts'} available.
+                </div>
               )}
             </div>
           </div>
@@ -338,20 +416,51 @@ export default function Dashboard() {
               <h3>Action Required</h3>
             </div>
             <div className="action-list">
-              <div className="action-item alert">
-                <div className="action-icon">!</div>
-                <div className="action-details">
-                  <h4>{role === 'manager' ? 'Approve Q2 OKRs' : role === 'admin' ? 'Review Access Logs' : 'Update Q2 OKRs'}</h4>
-                  <p>Overdue by 2 days</p>
+              {dashboardLoading ? (
+                <div className="text-muted" style={{ padding: '1rem', textAlign: 'center' }}>
+                  Loading...
                 </div>
-              </div>
-              <div className="action-item warning">
-                <div className="action-icon">!</div>
-                <div className="action-details">
-                  <h4>{role === 'manager' ? 'Check-in with Sarah' : role === 'admin' ? 'Server Maintenance' : 'Review peer feedback'}</h4>
-                  <p>Due tomorrow</p>
+              ) : role === 'manager' && dashboardData?.pendingApprovals > 0 ? (
+                <div className="action-item alert">
+                  <div className="action-icon">!</div>
+                  <div className="action-details">
+                    <h4>Review Pending Goals</h4>
+                    <p>{dashboardData.pendingApprovals} goal(s) require approval</p>
+                  </div>
                 </div>
-              </div>
+              ) : role === 'admin' && dashboardData?.lockedGoals > 0 ? (
+                <div className="action-item alert">
+                  <div className="action-icon">!</div>
+                  <div className="action-details">
+                    <h4>Unlock Goals</h4>
+                    <p>{dashboardData.lockedGoals} goal(s) awaiting unlock</p>
+                  </div>
+                </div>
+              ) : role === 'manager' ? (
+                <div className="action-item warning">
+                  <div className="action-icon">✓</div>
+                  <div className="action-details">
+                    <h4>All Clear</h4>
+                    <p>No pending approvals at this time</p>
+                  </div>
+                </div>
+              ) : role === 'admin' ? (
+                <div className="action-item warning">
+                  <div className="action-icon">✓</div>
+                  <div className="action-details">
+                    <h4>System Healthy</h4>
+                    <p>No critical actions required</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="action-item warning">
+                  <div className="action-icon">!</div>
+                  <div className="action-details">
+                    <h4>Update Q2 OKRs</h4>
+                    <p>Due tomorrow</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

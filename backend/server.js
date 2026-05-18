@@ -182,6 +182,94 @@ app.delete('/api/goals/:id', async (req, res) => {
   }
 });
 
+// Manager Dashboard Metrics
+app.get('/api/dashboard/manager', async (req, res) => {
+  try {
+    const allGoals = await Goal.find().lean();
+    
+    // Calculate team goals (total goals in system)
+    const totalGoals = allGoals.length;
+    
+    // Calculate pending approvals (goals in progress that may need review)
+    const pendingApprovals = allGoals.filter(g => g.status === 'In Progress').length;
+    
+    // Calculate team velocity (average progress across all goals)
+    const averageProgress = allGoals.length > 0 
+      ? Math.round(allGoals.reduce((sum, g) => sum + (g.progress || 0), 0) / allGoals.length)
+      : 0;
+    
+    // Get recent team goals for the list
+    const recentGoals = await Goal.find()
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+    
+    console.log(`GET /api/dashboard/manager → totalGoals=${totalGoals}, pending=${pendingApprovals}, velocity=${averageProgress}%`);
+    res.json({
+      totalGoals,
+      pendingApprovals,
+      teamVelocity: averageProgress,
+      recentGoals,
+      completedGoals: allGoals.filter(g => g.status === 'Completed').length
+    });
+  } catch (err) {
+    console.error('GET /api/dashboard/manager failed:', err);
+    res.status(500).json({ error: 'Failed to fetch manager dashboard data', details: err.message });
+  }
+});
+
+// Admin Dashboard Metrics
+app.get('/api/dashboard/admin', async (req, res) => {
+  try {
+    const allGoals = await Goal.find().lean();
+    
+    // Calculate total users (unique roles in goals)
+    const uniqueRoles = new Set(allGoals.map(g => g.role));
+    const totalUsers = uniqueRoles.size;
+    
+    // Calculate total goals
+    const totalGoals = allGoals.length;
+    
+    // Calculate active goals (not completed)
+    const activeGoals = allGoals.filter(g => g.status !== 'Completed').length;
+    
+    // Calculate system health (based on goal completion rate)
+    const completedGoals = allGoals.filter(g => g.status === 'Completed').length;
+    const systemHealth = totalGoals > 0 
+      ? Math.round((completedGoals / totalGoals) * 100)
+      : 100;
+    
+    // Calculate locked goals (goals not started)
+    const lockedGoals = allGoals.filter(g => g.status === 'Not Started').length;
+    
+    // Get system alerts (recent goals that need attention)
+    const systemAlerts = allGoals
+      .filter(g => g.status === 'In Progress')
+      .sort({ createdAt: -1 })
+      .slice(0, 5)
+      .map(g => ({
+        id: g._id,
+        title: g.title,
+        status: g.status,
+        progress: g.progress,
+        createdAt: g.createdAt
+      }));
+    
+    console.log(`GET /api/dashboard/admin → users=${totalUsers}, goals=${totalGoals}, health=${systemHealth}%`);
+    res.json({
+      totalUsers,
+      totalGoals,
+      activeGoals,
+      systemHealth,
+      lockedGoals,
+      systemAlerts
+    });
+  } catch (err) {
+    console.error('GET /api/dashboard/admin failed:', err);
+    res.status(500).json({ error: 'Failed to fetch admin dashboard data', details: err.message });
+  }
+});
+
 // AI Goal Suggestions — always returns { success: true, suggestions: [...] }
 app.get('/api/ai/suggestions', async (req, res) => {
   const role = String(req.query.role || 'employee');
