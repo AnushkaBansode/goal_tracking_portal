@@ -1,21 +1,38 @@
-<<<<<<< HEAD
-# React + Vite
+# GoalTracker Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A real-time goal tracking portal for Employees, Managers, and Admins.
 
-Currently, two official plugins are available:
+## Features
+- Role-based dashboards
+- Goal analytics and tracking
+- AI-powered goal suggestions
+- CRUD goal management
+- Progress monitoring
+- Employee, Manager, and Admin access control
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Tech Stack
+- React + Vite
+- Node.js + Express
+- MongoDB
+- Chart.js
+- CSS
 
-## React Compiler
+## User Roles
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Employee
+- Create and manage goals
+- Track progress
+- Receive AI-generated suggestions
 
-## Expanding the ESLint configuration
+### Manager
+- Monitor team goals
+- Approve updates
+- Track team performance
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-=======
-# goal_tracking_portal
-A real time goal tracking website/portal for emplloyees, managers and Admins.
->>>>>>> 3c1d84e85d058f25cf32ed9ecb078a2372d585fc
+### Admin
+- System-wide analytics
+- Employee management
+- Goal unlock controls
+
+## Project Status
+Hackathon Project – In Active Development
