@@ -14,7 +14,7 @@ const {
 
 const app = express();
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174'],
+  origin: true,
   credentials: true
 }));
 app.use(express.json());
@@ -362,9 +362,9 @@ app.get('/api/ai/suggestions', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, '127.0.0.1', () => {
-  console.log(`Backend server running on http://127.0.0.1:${PORT}`);
-  console.log(`Health check: http://127.0.0.1:${PORT}/api/health`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Backend server running on http://0.0.0.0:${PORT}`);
+  console.log(`Health check: http://0.0.0.0:${PORT}/api/health`);
 });
 
 process.on('unhandledRejection', (reason) => {
